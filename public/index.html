@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>共有掲示板</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <h1>共有掲示板</h1>
+    <p class="sub">共有フォルダをデータ置き場にした社内向け掲示板です。</p>
+  </header>
+
+  <section class="new-post">
+    <h2>新規投稿</h2>
+    <form id="new-post-form">
+      <input type="text" name="author" placeholder="お名前(省略可)" />
+      <input type="text" name="title" placeholder="タイトル" required />
+      <textarea name="body" placeholder="本文" required></textarea>
+      <button type="submit">投稿する</button>
+    </form>
+  </section>
+
+  <section id="posts" class="posts"></section>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
