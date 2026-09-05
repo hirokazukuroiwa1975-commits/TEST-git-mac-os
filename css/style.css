@@ -138,10 +138,31 @@ h1 {
 }
 .add-btn:active { opacity: .85; }
 
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.panel-back {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--card-border);
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .panel-title {
   font-size: 15px;
   font-weight: 700;
-  margin: 0 0 14px;
+  margin: 0;
 }
 
 .panel {

@@ -275,6 +275,7 @@ function openEditPanel(item) {
 function wireForm() {
   document.getElementById('toggleAdd').addEventListener('click', openPanel);
   document.getElementById('cancelAdd').addEventListener('click', closePanel);
+  document.getElementById('panelBack').addEventListener('click', closePanel);
   document.getElementById('s-existing').addEventListener('click', () => setStatus('existing'));
   document.getElementById('s-new').addEventListener('click', () => setStatus('new'));
   document.getElementById('photoCameraBtn').addEventListener('click', () => {

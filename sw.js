@@ -1,4 +1,4 @@
-const CACHE_NAME = 'collection-log-v6';
+const CACHE_NAME = 'collection-log-v7';
 const FONT_CACHE = 'collection-log-fonts-v1';
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 const APP_SHELL = [
