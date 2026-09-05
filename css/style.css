@@ -138,6 +138,12 @@ h1 {
 }
 .add-btn:active { opacity: .85; }
 
+.panel-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 14px;
+}
+
 .panel {
   background: var(--card);
   border: 1px solid var(--card-border);
@@ -221,7 +227,9 @@ h1 {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  cursor: pointer;
 }
+.item:active { opacity: .88; }
 .item .media {
   position: relative;
   width: 100%;
@@ -289,6 +297,7 @@ h1 {
   background: linear-gradient(to top, rgba(0, 0, 0, .78), transparent);
   color: #fff;
   font-weight: 800;
+  pointer-events: none;
   font-size: 14px;
   font-variant-numeric: tabular-nums;
 }

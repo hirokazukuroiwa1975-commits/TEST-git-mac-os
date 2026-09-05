@@ -50,6 +50,16 @@ export async function addItem(item) {
   });
 }
 
+export async function updateItem(item) {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put(item);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 export async function deleteItem(id) {
   const db = await getDB();
   return new Promise((resolve, reject) => {

@@ -1,4 +1,4 @@
-import { getAllItems, addItem, deleteItem } from './db.js';
+import { getAllItems, addItem, updateItem, deleteItem } from './db.js';
 import { compressImage } from './image.js';
 
 const CATS = ['レコード', '本・マンガ', 'ファッション', 'その他'];
@@ -18,6 +18,7 @@ let newStatus = 'existing';
 let pendingPhoto = null; // Blob | null
 let listObjectUrls = [];
 let previewObjectUrl = null;
+let editingId = null; // null = add mode, otherwise id of the item being edited
 
 function fmtYen(n) {
   if (n === null || n === undefined || n === '') return '';
@@ -127,7 +128,7 @@ function renderList() {
         : `<div class="placeholder" style="background:${c.bg};color:${c.fg}">${escapeHtml(i.category.slice(0, 1))}</div>`;
       const priceTag = i.status === 'new' && i.price ? `<div class="price-tag">${fmtYen(i.price)}</div>` : '';
       return `
-        <div class="item">
+        <div class="item" data-id="${i.id}">
           <div class="media">
             ${media}
             <span class="cat-badge" style="background:${c.bg};color:${c.fg}">${escapeHtml(i.category)}</span>
@@ -147,16 +148,24 @@ function renderList() {
     .join('');
 
   listEl.querySelectorAll('.card-del').forEach((btn) => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
       if (!confirm('このアイテムを削除しますか?')) return;
       try {
         await deleteItem(btn.dataset.id);
         items = items.filter((i) => i.id !== btn.dataset.id);
         render();
-      } catch (e) {
-        console.error('delete failed', e);
+      } catch (err) {
+        console.error('delete failed', err);
         showToast('削除に失敗しました');
       }
+    });
+  });
+
+  listEl.querySelectorAll('.item').forEach((card) => {
+    card.addEventListener('click', () => {
+      const item = items.find((i) => i.id === card.dataset.id);
+      if (item) openEditPanel(item);
     });
   });
 }
@@ -199,6 +208,9 @@ function setStatus(s) {
 }
 
 function resetForm() {
+  editingId = null;
+  document.getElementById('panelTitle').textContent = 'アイテムを追加';
+  document.getElementById('saveItem').textContent = '保存する';
   document.getElementById('f-category').value = 'レコード';
   document.getElementById('f-category-custom-wrap').style.display = 'none';
   document.getElementById('f-category-custom').value = '';
@@ -217,12 +229,42 @@ function resetForm() {
 function openPanel() {
   document.getElementById('panel').classList.add('open');
   document.getElementById('toggleAdd').style.display = 'none';
+  document.getElementById('panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function closePanel() {
   document.getElementById('panel').classList.remove('open');
   document.getElementById('toggleAdd').style.display = 'block';
   resetForm();
+}
+
+function openEditPanel(item) {
+  resetForm();
+  editingId = item.id;
+  document.getElementById('panelTitle').textContent = 'アイテムを編集';
+  document.getElementById('saveItem').textContent = '更新する';
+
+  const categorySelect = document.getElementById('f-category');
+  const isKnownCategory = [...categorySelect.options].some((o) => o.value === item.category);
+  if (isKnownCategory) {
+    categorySelect.value = item.category;
+  } else {
+    categorySelect.value = '__custom';
+    document.getElementById('f-category-custom-wrap').style.display = 'block';
+    document.getElementById('f-category-custom').value = item.category;
+  }
+
+  document.getElementById('f-name').value = item.name || '';
+  document.getElementById('f-brand').value = item.brand || '';
+  setStatus(item.status === 'new' ? 'new' : 'existing');
+  document.getElementById('f-date').value = item.date || '';
+  document.getElementById('f-price').value = item.price || '';
+  document.getElementById('f-place').value = item.place || '';
+  document.getElementById('f-notes').value = item.notes || '';
+  pendingPhoto = item.photo || null;
+  renderPhotoPreview();
+
+  openPanel();
 }
 
 function wireForm() {
@@ -267,8 +309,11 @@ function wireForm() {
     const saveBtn = document.getElementById('saveItem');
     saveBtn.disabled = true;
 
+    const isEditing = editingId !== null;
+    const existing = isEditing ? items.find((i) => i.id === editingId) : null;
+
     const item = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      id: isEditing ? editingId : Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
       category,
       name,
       brand: document.getElementById('f-brand').value.trim(),
@@ -278,15 +323,21 @@ function wireForm() {
       place: newStatus === 'new' ? document.getElementById('f-place').value.trim() : '',
       notes: document.getElementById('f-notes').value.trim(),
       photo: pendingPhoto || null,
-      createdAt: new Date().toISOString()
+      createdAt: isEditing && existing ? existing.createdAt : new Date().toISOString()
     };
 
     try {
-      await addItem(item);
-      items.push(item);
+      if (isEditing) {
+        await updateItem(item);
+        items = items.map((i) => (i.id === editingId ? item : i));
+        showToast('更新しました');
+      } else {
+        await addItem(item);
+        items.push(item);
+        showToast('保存しました');
+      }
       closePanel();
       render();
-      showToast('保存しました');
     } catch (err) {
       console.error('save failed', err);
       alert('保存に失敗しました。写真のサイズが大きすぎる可能性があります。');
