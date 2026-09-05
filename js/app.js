@@ -31,6 +31,8 @@
     searchInput: document.getElementById("search-input"),
     filterCategory: document.getElementById("filter-category"),
     filterStatus: document.getElementById("filter-status"),
+    filterDateFrom: document.getElementById("filter-date-from"),
+    filterDateTo: document.getElementById("filter-date-to"),
     sortOrder: document.getElementById("sort-order"),
     statOwnedCount: document.getElementById("stat-owned-count"),
     statTotalSpent: document.getElementById("stat-total-spent"),
@@ -233,11 +235,18 @@
     const query = els.searchInput.value.trim().toLowerCase();
     const categoryFilter = els.filterCategory.value;
     const statusFilter = els.filterStatus.value;
+    const dateFrom = els.filterDateFrom.value;
+    const dateTo = els.filterDateTo.value;
     const sortOrder = els.sortOrder.value;
 
     let result = items.filter((item) => {
       if (categoryFilter && item.category !== categoryFilter) return false;
       if (statusFilter && item.status !== statusFilter) return false;
+      if (dateFrom || dateTo) {
+        if (!item.date) return false;
+        if (dateFrom && item.date < dateFrom) return false;
+        if (dateTo && item.date > dateTo) return false;
+      }
       if (query) {
         const haystack = [item.name, item.notes, item.seriesName, ...(item.tags || [])]
           .join(" ")
@@ -442,7 +451,14 @@
     }
   });
 
-  [els.searchInput, els.filterCategory, els.filterStatus, els.sortOrder].forEach((el) => {
+  [
+    els.searchInput,
+    els.filterCategory,
+    els.filterStatus,
+    els.filterDateFrom,
+    els.filterDateTo,
+    els.sortOrder,
+  ].forEach((el) => {
     el.addEventListener("input", renderList);
     el.addEventListener("change", renderList);
   });
