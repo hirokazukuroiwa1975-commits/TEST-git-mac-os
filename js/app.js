@@ -323,6 +323,11 @@ function wireForm() {
     const isEditing = editingId !== null;
     const existing = isEditing ? items.find((i) => i.id === editingId) : null;
 
+    // Safari/WebKit corrupts a Blob that was read from IndexedDB when it is
+    // written straight back into IndexedDB (e.g. re-saving an edited item
+    // without changing its photo). Re-wrapping it in a fresh Blob avoids that.
+    const photoToStore = pendingPhoto ? new Blob([pendingPhoto], { type: pendingPhoto.type }) : null;
+
     const item = {
       id: isEditing ? editingId : Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
       category,
@@ -333,7 +338,7 @@ function wireForm() {
       price: newStatus === 'new' ? document.getElementById('f-price').value : '',
       place: newStatus === 'new' ? document.getElementById('f-place').value.trim() : '',
       notes: document.getElementById('f-notes').value.trim(),
-      photo: pendingPhoto || null,
+      photo: photoToStore,
       createdAt: isEditing && existing ? existing.createdAt : new Date().toISOString()
     };
 
