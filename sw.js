@@ -1,4 +1,4 @@
-const CACHE_NAME = 'collection-log-v10';
+const CACHE_NAME = 'collection-log-v11';
 const FONT_CACHE = 'collection-log-fonts-v1';
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 const APP_SHELL = [
@@ -15,10 +15,20 @@ const APP_SHELL = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) =>
+      // Cache each file independently instead of cache.addAll(), which aborts
+      // the *entire* install if even one request fails — that would leave
+      // the old service worker (and its stale cache) in control forever.
+      Promise.all(
+        APP_SHELL.map((path) =>
+          fetch(path, { cache: 'reload' })
+            .then((res) => {
+              if (res.ok) return cache.put(path, res);
+            })
+            .catch((err) => console.error('Precache failed for', path, err))
+        )
+      ).then(() => self.skipWaiting())
+    )
   );
 });
 
@@ -56,18 +66,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // App shell (HTML/CSS/JS/icons): network-first. Always prefer the live,
+  // freshly-deployed version when online; the cache only serves as an
+  // offline fallback, never a substitute for a reachable network.
   event.respondWith(
-    caches.match(req).then((cached) => {
-      const fetchPromise = fetch(req)
-        .then((res) => {
-          if (res && res.ok && res.type === 'basic') {
-            const clone = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
-          }
-          return res;
-        })
-        .catch(() => cached);
-      return cached || fetchPromise;
-    })
+    fetch(req)
+      .then((res) => {
+        if (res && res.ok && res.type === 'basic') {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+        }
+        return res;
+      })
+      .catch(() => caches.match(req))
   );
 });
