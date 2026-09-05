@@ -120,12 +120,27 @@
 <script type="module" src="./js/app.js"></script>
 <script>
   if ('serviceWorker' in navigator) {
+    let swRegistration = null;
+
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js')
-        .then((reg) => reg.update())
+        .then((reg) => {
+          swRegistration = reg;
+          reg.update();
+        })
         .catch((err) => {
           console.error('Service worker registration failed:', err);
         });
+    });
+
+    // A PWA opened from the home screen is usually resumed from the
+    // background rather than freshly navigated, so the 'load' handler above
+    // often never runs again. Re-check for an update whenever the app comes
+    // back to the foreground so it doesn't go stale for days at a time.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && swRegistration) {
+        swRegistration.update();
+      }
     });
 
     // Reload once when a newly-deployed service worker takes control, so an
