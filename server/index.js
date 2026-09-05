@@ -53,8 +53,10 @@ app.use(express.json({ limit: "15mb" }));
 // Only the specific frontend assets are exposed - never the whole project
 // root (which would otherwise also expose server source and stored data).
 app.get(["/", "/index.html"], (req, res) => res.sendFile(path.join(rootDir, "index.html")));
+app.get("/manifest.json", (req, res) => res.sendFile(path.join(rootDir, "manifest.json")));
 app.use("/css", express.static(path.join(rootDir, "css")));
 app.use("/js", express.static(path.join(rootDir, "js")));
+app.use("/icons", express.static(path.join(rootDir, "icons")));
 app.use("/images", express.static(IMAGES_DIR));
 
 const client = new Anthropic();
