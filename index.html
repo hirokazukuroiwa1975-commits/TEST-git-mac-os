@@ -121,9 +121,21 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').catch((err) => {
-        console.error('Service worker registration failed:', err);
-      });
+      navigator.serviceWorker.register('./sw.js')
+        .then((reg) => reg.update())
+        .catch((err) => {
+          console.error('Service worker registration failed:', err);
+        });
+    });
+
+    // Reload once when a newly-deployed service worker takes control, so an
+    // already-open tab picks up the new HTML/CSS/JS instead of silently
+    // continuing to run the old version until manually reloaded.
+    let reloadedForNewSW = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloadedForNewSW) return;
+      reloadedForNewSW = true;
+      window.location.reload();
     });
   }
 </script>
