@@ -1,6 +1,4 @@
 (() => {
-  const STORAGE_KEY = "hobby-collection-items-v1";
-
   const statusLabels = {
     owned: "所有中",
     wishlist: "欲しいもの",
@@ -47,20 +45,36 @@
     receiptStatus: document.getElementById("receipt-status"),
   };
 
-  let items = loadItems();
+  // Data lives on the server (server/data/items.json) so PC and phone share
+  // the same list as long as both point at the same running server.
+  let items = [];
 
-  function loadItems() {
+  async function loadItems() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) {
-      console.error("Failed to load items", e);
+      const res = await fetch("/api/items");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error("Failed to load items", err);
+      alert("サーバーからデータを読み込めませんでした。サーバー(npm start)が起動しているか確認してください。");
       return [];
     }
   }
 
-  function saveItems() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  async function saveItems() {
+    try {
+      const res = await fetch("/api/items", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(items),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return true;
+    } catch (err) {
+      console.error("Failed to save items", err);
+      return false;
+    }
   }
 
   function uid() {
@@ -376,7 +390,7 @@
     renderList();
   }
 
-  els.form.addEventListener("submit", (e) => {
+  els.form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const tags = els.tags.value
@@ -415,9 +429,12 @@
       });
     }
 
-    saveItems();
     resetForm();
     renderAll();
+    const ok = await saveItems();
+    if (!ok) {
+      alert("サーバーへの保存に失敗しました。ネットワーク接続とサーバーの起動状態を確認してください。");
+    }
   });
 
   els.cancelEditBtn.addEventListener("click", () => {
@@ -426,7 +443,7 @@
 
   els.name.addEventListener("blur", suggestSeriesAndVolume);
 
-  els.itemList.addEventListener("click", (e) => {
+  els.itemList.addEventListener("click", async (e) => {
     if (e.target.classList.contains("toggle-series-btn")) {
       const members = e.target.closest(".series-card").querySelector(".series-members");
       const willShow = members.hidden;
@@ -445,8 +462,11 @@
     } else if (e.target.classList.contains("delete-btn")) {
       if (confirm("このアイテムを削除しますか？")) {
         items = items.filter((i) => i.id !== id);
-        saveItems();
         renderAll();
+        const ok = await saveItems();
+        if (!ok) {
+          alert("サーバーへの保存に失敗しました。ネットワーク接続とサーバーの起動状態を確認してください。");
+        }
       }
     }
   });
@@ -572,7 +592,7 @@
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const imported = JSON.parse(reader.result);
         if (!Array.isArray(imported)) throw new Error("Invalid format");
@@ -588,9 +608,9 @@
             items.push(item);
           });
         }
-        saveItems();
         renderAll();
-        alert("インポートが完了しました。");
+        const ok = await saveItems();
+        alert(ok ? "インポートが完了しました。" : "インポートしたデータのサーバーへの保存に失敗しました。");
       } catch (err) {
         alert("JSONの読み込みに失敗しました。ファイル形式を確認してください。");
         console.error(err);
@@ -662,6 +682,11 @@
     }
   });
 
-  resetForm();
-  renderAll();
+  async function init() {
+    resetForm();
+    items = await loadItems();
+    renderAll();
+  }
+
+  init();
 })();

@@ -1,5 +1,6 @@
 import express from "express";
 import path from "node:path";
+import fs from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import Anthropic from "@anthropic-ai/sdk";
@@ -11,11 +12,64 @@ dotenv.config();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.join(__dirname, "..");
 
+// Kept outside of the statically-served directories below so it's never
+// reachable over HTTP directly.
+const DATA_DIR = path.join(__dirname, "data");
+const DATA_FILE = path.join(DATA_DIR, "items.json");
+
+async function ensureDataFile() {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  try {
+    await fs.access(DATA_FILE);
+  } catch {
+    await fs.writeFile(DATA_FILE, "[]\n", "utf8");
+  }
+}
+
+// Serializes writes so two near-simultaneous saves (e.g. PC + phone) can't
+// interleave and corrupt the file.
+let writeChain = Promise.resolve();
+function persistItems(itemsArray) {
+  writeChain = writeChain.then(() =>
+    fs.writeFile(DATA_FILE, JSON.stringify(itemsArray, null, 2), "utf8")
+  );
+  return writeChain;
+}
+
 const app = express();
 app.use(express.json({ limit: "15mb" }));
-app.use(express.static(rootDir));
+
+// Only the specific frontend assets are exposed - never the whole project
+// root (which would otherwise also expose server source and stored data).
+app.get(["/", "/index.html"], (req, res) => res.sendFile(path.join(rootDir, "index.html")));
+app.use("/css", express.static(path.join(rootDir, "css")));
+app.use("/js", express.static(path.join(rootDir, "js")));
 
 const client = new Anthropic();
+
+app.get("/api/items", async (req, res) => {
+  try {
+    const raw = await fs.readFile(DATA_FILE, "utf8");
+    const parsed = JSON.parse(raw);
+    res.json(Array.isArray(parsed) ? parsed : []);
+  } catch (err) {
+    console.error("Failed to read items:", err);
+    res.status(500).json({ error: "データの読み込みに失敗しました。" });
+  }
+});
+
+app.put("/api/items", async (req, res) => {
+  if (!Array.isArray(req.body)) {
+    return res.status(400).json({ error: "アイテムの配列(array)が必要です。" });
+  }
+  try {
+    await persistItems(req.body);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Failed to save items:", err);
+    res.status(500).json({ error: "データの保存に失敗しました。" });
+  }
+});
 
 const ReceiptSchema = z.object({
   storeName: z.string().nullable().describe("店名・発行者名。読み取れない場合はnull"),
@@ -88,6 +142,8 @@ app.post("/api/analyze-receipt", async (req, res) => {
     res.status(500).json({ error: "サーバーエラーが発生しました。" });
   }
 });
+
+await ensureDataFile();
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
