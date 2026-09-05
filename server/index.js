@@ -1,6 +1,7 @@
 import express from "express";
 import path from "node:path";
 import fs from "node:fs/promises";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import Anthropic from "@anthropic-ai/sdk";
@@ -16,9 +17,19 @@ const rootDir = path.join(__dirname, "..");
 // reachable over HTTP directly.
 const DATA_DIR = path.join(__dirname, "data");
 const DATA_FILE = path.join(DATA_DIR, "items.json");
+const IMAGES_DIR = path.join(DATA_DIR, "images");
+
+const ALLOWED_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const MEDIA_TYPE_EXTENSIONS = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+const MAX_IMAGE_BASE64_LENGTH = 10 * 1024 * 1024; // ~10MB of base64 text
 
 async function ensureDataFile() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.mkdir(IMAGES_DIR, { recursive: true });
   try {
     await fs.access(DATA_FILE);
   } catch {
@@ -44,6 +55,7 @@ app.use(express.json({ limit: "15mb" }));
 app.get(["/", "/index.html"], (req, res) => res.sendFile(path.join(rootDir, "index.html")));
 app.use("/css", express.static(path.join(rootDir, "css")));
 app.use("/js", express.static(path.join(rootDir, "js")));
+app.use("/images", express.static(IMAGES_DIR));
 
 const client = new Anthropic();
 
@@ -71,6 +83,47 @@ app.put("/api/items", async (req, res) => {
   }
 });
 
+app.post("/api/upload-photo", async (req, res) => {
+  const { image, mediaType } = req.body || {};
+
+  if (!image || typeof image !== "string") {
+    return res.status(400).json({ error: "画像データ(image)が必要です。" });
+  }
+  if (image.length > MAX_IMAGE_BASE64_LENGTH) {
+    return res.status(413).json({ error: "画像サイズが大きすぎます。" });
+  }
+  if (!ALLOWED_MEDIA_TYPES.has(mediaType)) {
+    return res.status(400).json({ error: "対応していない画像形式です（jpeg/png/webp/gifのみ）。" });
+  }
+
+  try {
+    const ext = MEDIA_TYPE_EXTENSIONS[mediaType];
+    const filename = `${crypto.randomUUID()}.${ext}`;
+    await fs.writeFile(path.join(IMAGES_DIR, filename), Buffer.from(image, "base64"));
+    res.json({ url: `/images/${filename}` });
+  } catch (err) {
+    console.error("Failed to save photo:", err);
+    res.status(500).json({ error: "画像の保存に失敗しました。" });
+  }
+});
+
+app.delete("/api/photos/:filename", async (req, res) => {
+  const filename = req.params.filename;
+  // Reject anything but a bare filename to prevent escaping IMAGES_DIR via "..".
+  if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/.test(filename)) {
+    return res.status(400).json({ error: "不正なファイル名です。" });
+  }
+  try {
+    await fs.unlink(path.join(IMAGES_DIR, filename));
+  } catch (err) {
+    if (err.code !== "ENOENT") {
+      console.error("Failed to delete photo:", err);
+      return res.status(500).json({ error: "画像の削除に失敗しました。" });
+    }
+  }
+  res.json({ ok: true });
+});
+
 const ReceiptSchema = z.object({
   storeName: z.string().nullable().describe("店名・発行者名。読み取れない場合はnull"),
   purchaseDate: z
@@ -87,9 +140,6 @@ const ReceiptSchema = z.object({
     .describe("主な購入品の名称。複数ある場合は代表的な1つ。判別できない場合はnull"),
   rawText: z.string().describe("レシート・納品書上に見えるテキストをそのまま書き起こしたもの"),
 });
-
-const ALLOWED_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-const MAX_IMAGE_BASE64_LENGTH = 10 * 1024 * 1024; // ~10MB of base64 text
 
 app.post("/api/analyze-receipt", async (req, res) => {
   const { image, mediaType } = req.body || {};

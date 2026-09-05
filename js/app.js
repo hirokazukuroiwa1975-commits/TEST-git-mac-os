@@ -43,6 +43,11 @@
     importJsonInput: document.getElementById("import-json-input"),
     receiptInput: document.getElementById("receipt-input"),
     receiptStatus: document.getElementById("receipt-status"),
+    photoUrl: document.getElementById("item-photo-url"),
+    photoInput: document.getElementById("item-photo-input"),
+    photoPreview: document.getElementById("photo-preview"),
+    photoStatus: document.getElementById("photo-status"),
+    removePhotoBtn: document.getElementById("remove-photo-btn"),
   };
 
   // Data lives on the server (server/data/items.json) so PC and phone share
@@ -96,6 +101,19 @@
     }[c]));
   }
 
+  function setPhotoPreview(url) {
+    els.photoUrl.value = url || "";
+    if (url) {
+      els.photoPreview.src = url;
+      els.photoPreview.hidden = false;
+      els.removePhotoBtn.hidden = false;
+    } else {
+      els.photoPreview.src = "";
+      els.photoPreview.hidden = true;
+      els.removePhotoBtn.hidden = true;
+    }
+  }
+
   function resetForm() {
     els.form.reset();
     els.id.value = "";
@@ -103,6 +121,8 @@
     els.formTitle.textContent = "アイテムを追加";
     els.submitBtn.textContent = "追加する";
     els.cancelEditBtn.hidden = true;
+    setPhotoPreview(null);
+    els.photoStatus.textContent = "";
   }
 
   // Recognizes trailing volume markers like "11巻", "第11巻", "(11)", "vol.11", or a
@@ -148,6 +168,7 @@
     els.status.value = item.status;
     els.series.value = item.seriesName || "";
     els.volume.value = item.volumeNumber ?? "";
+    setPhotoPreview(item.photoUrl || null);
     els.date.value = item.date || "";
     els.price.value = item.price ?? "";
     els.store.value = item.store || "";
@@ -305,22 +326,30 @@
     if (item.url) {
       metaParts.push(`<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">参考リンク</a>`);
     }
+    const thumbHtml = item.photoUrl
+      ? `<img class="item-thumb" src="${escapeHtml(item.photoUrl)}" alt="">`
+      : "";
 
     return `
     <article class="item-card" data-id="${item.id}">
-      <div class="item-card-header">
-        <div>
-          <div class="item-name">${escapeHtml(item.name)}</div>
-          <div class="hint">${escapeHtml(item.category)}</div>
+      <div class="item-card-main">
+        ${thumbHtml}
+        <div class="item-card-body">
+          <div class="item-card-header">
+            <div>
+              <div class="item-name">${escapeHtml(item.name)}</div>
+              <div class="hint">${escapeHtml(item.category)}</div>
+            </div>
+            <span class="item-status ${item.status}">${statusLabels[item.status] || item.status}</span>
+          </div>
+          <div class="item-meta">${metaParts.join(" ・ ")}</div>
+          ${item.notes ? `<div class="item-notes">${escapeHtml(item.notes)}</div>` : ""}
+          ${tagsHtml ? `<div class="item-tags">${tagsHtml}</div>` : ""}
+          <div class="item-actions">
+            <button type="button" class="secondary edit-btn">編集</button>
+            <button type="button" class="delete-btn">削除</button>
+          </div>
         </div>
-        <span class="item-status ${item.status}">${statusLabels[item.status] || item.status}</span>
-      </div>
-      <div class="item-meta">${metaParts.join(" ・ ")}</div>
-      ${item.notes ? `<div class="item-notes">${escapeHtml(item.notes)}</div>` : ""}
-      ${tagsHtml ? `<div class="item-tags">${tagsHtml}</div>` : ""}
-      <div class="item-actions">
-        <button type="button" class="secondary edit-btn">編集</button>
-        <button type="button" class="delete-btn">削除</button>
       </div>
     </article>`;
   }
@@ -404,6 +433,7 @@
       status: els.status.value,
       seriesName: els.series.value.trim() || null,
       volumeNumber: els.volume.value === "" ? null : Number(els.volume.value),
+      photoUrl: els.photoUrl.value || null,
       date: els.date.value,
       price: els.price.value === "" ? null : Number(els.price.value),
       store: els.store.value.trim(),
@@ -461,11 +491,15 @@
       if (item) startEdit(item);
     } else if (e.target.classList.contains("delete-btn")) {
       if (confirm("このアイテムを削除しますか？")) {
+        const target = items.find((i) => i.id === id);
         items = items.filter((i) => i.id !== id);
         renderAll();
         const ok = await saveItems();
         if (!ok) {
           alert("サーバーへの保存に失敗しました。ネットワーク接続とサーバーの起動状態を確認してください。");
+        }
+        if (target && target.photoUrl) {
+          deletePhotoFile(target.photoUrl);
         }
       }
     }
@@ -619,6 +653,79 @@
       }
     };
     reader.readAsText(file);
+  });
+
+  // Downscales an image file to a small thumbnail (JPEG) entirely in the
+  // browser before upload, so the server never stores full-resolution photos.
+  function resizeImageToBlob(file, maxDim = 480, quality = 0.82) {
+    return new Promise((resolve, reject) => {
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width >= height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        URL.revokeObjectURL(objectUrl);
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error("画像の変換に失敗しました"))),
+          "image/jpeg",
+          quality
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error("画像の読み込みに失敗しました"));
+      };
+      img.src = objectUrl;
+    });
+  }
+
+  function deletePhotoFile(url) {
+    const filename = (url || "").split("/").pop();
+    if (!filename) return;
+    fetch(`/api/photos/${encodeURIComponent(filename)}`, { method: "DELETE" }).catch((err) => {
+      console.error("Failed to delete photo file", err);
+    });
+  }
+
+  els.photoInput.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    els.photoStatus.textContent = "アップロード中...";
+    try {
+      const resized = await resizeImageToBlob(file);
+      const { data, mediaType } = await fileToBase64(resized);
+      const response = await fetch("/api/upload-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: data, mediaType }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "アップロードに失敗しました。");
+      setPhotoPreview(result.url);
+      els.photoStatus.textContent = "";
+    } catch (err) {
+      console.error(err);
+      els.photoStatus.textContent = `エラー: ${err.message}`;
+    } finally {
+      e.target.value = "";
+    }
+  });
+
+  els.removePhotoBtn.addEventListener("click", () => {
+    setPhotoPreview(null);
   });
 
   function fileToBase64(file) {

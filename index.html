@@ -53,6 +53,19 @@
         <label for="item-name">品名 *</label>
         <input type="text" id="item-name" required placeholder="例: Nikon Z50">
       </div>
+      <div class="form-row">
+        <label>サムネイル写真</label>
+        <input type="hidden" id="item-photo-url">
+        <div class="photo-field">
+          <img id="photo-preview" class="photo-preview" hidden alt="サムネイルプレビュー">
+          <div class="photo-field-actions">
+            <label for="item-photo-input" class="file-input-label">📷 写真を撮影/選択</label>
+            <input type="file" id="item-photo-input" accept="image/*" hidden>
+            <button type="button" id="remove-photo-btn" class="secondary" hidden>写真を削除</button>
+          </div>
+          <span id="photo-status" class="hint" role="status"></span>
+        </div>
+      </div>
       <div class="form-row two-col">
         <div>
           <label for="item-category">カテゴリ *</label>

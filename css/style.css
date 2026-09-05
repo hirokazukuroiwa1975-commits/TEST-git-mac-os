@@ -379,6 +379,49 @@ button.secondary:hover {
   background: #ece9e2;
 }
 
+.photo-field {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.photo-preview {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.photo-field-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.item-card-main {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.item-thumb {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.item-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
 .receipt-scan {
   background: var(--bg);
   border: 1px dashed var(--border);
