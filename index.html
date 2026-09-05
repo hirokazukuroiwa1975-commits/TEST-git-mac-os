@@ -39,6 +39,14 @@
 
   <section class="panel" id="form-panel">
     <h2 id="form-title">アイテムを追加</h2>
+
+    <div class="receipt-scan">
+      <label for="receipt-input" class="file-input-label">📷 レシート・納品書を撮影/選択</label>
+      <input type="file" id="receipt-input" accept="image/*" capture="environment" hidden>
+      <p class="hint">画像から店名・購入日・金額・品名を自動で読み取り、下のフォームに入力します。内容を確認してから保存してください。</p>
+      <p id="receipt-status" class="hint" role="status"></p>
+    </div>
+
     <form id="item-form">
       <input type="hidden" id="item-id">
       <div class="form-row">

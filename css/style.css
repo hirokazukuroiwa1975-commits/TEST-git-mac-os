@@ -314,6 +314,22 @@ button.secondary:hover {
   background: #ece9e2;
 }
 
+.receipt-scan {
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.receipt-scan .hint {
+  margin: 0.5rem 0 0;
+}
+
+#receipt-status:empty {
+  display: none;
+}
+
 .app-footer {
   text-align: center;
   color: var(--text-muted);

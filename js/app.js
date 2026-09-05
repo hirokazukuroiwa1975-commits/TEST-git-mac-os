@@ -38,6 +38,8 @@
     exportMarkdownBtn: document.getElementById("export-markdown-btn"),
     exportCsvBtn: document.getElementById("export-csv-btn"),
     importJsonInput: document.getElementById("import-json-input"),
+    receiptInput: document.getElementById("receipt-input"),
+    receiptStatus: document.getElementById("receipt-status"),
   };
 
   let items = loadItems();
@@ -412,6 +414,64 @@
       }
     };
     reader.readAsText(file);
+  });
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const match = /^data:(.+);base64,(.*)$/.exec(reader.result || "");
+        if (!match) {
+          reject(new Error("画像の読み込みに失敗しました"));
+          return;
+        }
+        resolve({ mediaType: match[1], data: match[2] });
+      };
+      reader.onerror = () => reject(new Error("ファイルの読み込みに失敗しました"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  els.receiptInput.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    els.receiptStatus.textContent = "解析中...";
+
+    try {
+      const { data, mediaType } = await fileToBase64(file);
+      const response = await fetch("/api/analyze-receipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: data, mediaType }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "解析に失敗しました。");
+      }
+
+      if (result.itemName) els.name.value = result.itemName;
+      if (result.storeName) els.store.value = result.storeName;
+      if (result.purchaseDate) els.date.value = result.purchaseDate;
+      if (result.totalAmount !== null && result.totalAmount !== undefined) {
+        els.price.value = result.totalAmount;
+      }
+      if (result.rawText) {
+        const label = "[レシート読み取り内容]";
+        els.notes.value = els.notes.value
+          ? `${els.notes.value}\n\n${label}\n${result.rawText}`
+          : `${label}\n${result.rawText}`;
+      }
+
+      els.receiptStatus.textContent = "読み取り結果をフォームに反映しました。内容を確認して保存してください。";
+      els.form.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (err) {
+      console.error(err);
+      els.receiptStatus.textContent = `エラー: ${err.message}`;
+    } finally {
+      e.target.value = "";
+    }
   });
 
   resetForm();
