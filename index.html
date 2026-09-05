@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>コレクション台帳</title>
+<meta name="description" content="レコード・本・マンガ・ファッションなど、趣味の所有アイテムと購入履歴を記録するPWA">
+
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#241F1C">
+
+<!-- iOS home screen support -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="収集台帳">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="icon" href="./icons/icon-192.png">
+
+<link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <p class="kicker">HOBBY COLLECTION LOG</p>
+    <h1>コレクション台帳</h1>
+    <p class="sub">所有アイテムと購入履歴(日付・価格・購入先)を記録します</p>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <button class="add-btn" id="toggleAdd">+ アイテムを追加</button>
+
+  <div class="panel" id="panel">
+    <div class="field">
+      <label for="f-category">カテゴリ</label>
+      <select id="f-category">
+        <option value="レコード">レコード</option>
+        <option value="本・マンガ">本・マンガ</option>
+        <option value="ファッション">ファッション</option>
+        <option value="その他">その他</option>
+        <option value="__custom">＋ 新しいカテゴリを入力</option>
+      </select>
+    </div>
+    <div class="field" id="f-category-custom-wrap" style="display:none">
+      <label for="f-category-custom">新しいカテゴリ名</label>
+      <input type="text" id="f-category-custom" placeholder="例: フィギュア">
+    </div>
+    <div class="field">
+      <label for="f-name">タイトル・品名</label>
+      <input type="text" id="f-name" placeholder="例: Kind of Blue">
+    </div>
+    <div class="field">
+      <label for="f-brand">アーティスト・ブランドなど(任意)</label>
+      <input type="text" id="f-brand" placeholder="例: Miles Davis">
+    </div>
+
+    <div class="status-toggle">
+      <button type="button" class="on" id="s-existing">既存所有(購入情報なし)</button>
+      <button type="button" id="s-new">新規購入(記録あり)</button>
+    </div>
+
+    <div id="purchase-fields">
+      <div class="row2">
+        <div class="field">
+          <label for="f-date">購入日</label>
+          <input type="date" id="f-date">
+        </div>
+        <div class="field">
+          <label for="f-price">価格(円)</label>
+          <input type="number" id="f-price" placeholder="例: 3200" inputmode="numeric" min="0">
+        </div>
+      </div>
+      <div class="field">
+        <label for="f-place">購入場所</label>
+        <input type="text" id="f-place" placeholder="例: ディスクユニオン熊本店 / メルカリ">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="f-notes">メモ(任意・ブログのネタ帳として)</label>
+      <textarea id="f-notes" placeholder="思い入れ、状態、エピソードなど"></textarea>
+    </div>
+
+    <div class="photo-field">
+      <label>写真(任意)</label>
+      <input type="file" id="f-photo" accept="image/*" capture="environment" style="display:none">
+      <button type="button" class="photo-input-btn" id="photoPickBtn">写真を選ぶ・撮影する</button>
+      <div id="photoPreviewArea"></div>
+    </div>
+
+    <div class="panel-actions">
+      <button class="btn-save" id="saveItem">保存する</button>
+      <button class="btn-cancel" id="cancelAdd">キャンセル</button>
+    </div>
+  </div>
+
+  <div class="list" id="list">
+    <div class="loading">読み込み中...</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module" src="./js/app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch((err) => {
+        console.error('Service worker registration failed:', err);
+      });
+    });
+  }
+</script>
+</body>
+</html>
