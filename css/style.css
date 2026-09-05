@@ -19,8 +19,8 @@
   --grey: #A9ACB3;
   --grey-bg: rgba(169, 172, 179, .16);
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
-    "Hiragino Sans", "Yu Gothic Medium", "Yu Gothic", "Noto Sans JP", Meiryo, sans-serif;
+  --font-sans: "Montserrat", "Noto Sans JP", -apple-system, BlinkMacSystemFont,
+    "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic Medium", "Yu Gothic", Meiryo, sans-serif;
 }
 
 * { box-sizing: border-box; }
