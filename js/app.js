@@ -122,31 +122,31 @@ function renderList() {
         thumbSrc = URL.createObjectURL(i.photo);
         listObjectUrls.push(thumbSrc);
       }
+      const media = thumbSrc
+        ? `<img class="thumb" src="${thumbSrc}">`
+        : `<div class="placeholder" style="background:${c.bg};color:${c.fg}">${escapeHtml(i.category.slice(0, 1))}</div>`;
+      const priceTag = i.status === 'new' && i.price ? `<div class="price-tag">${fmtYen(i.price)}</div>` : '';
       return `
         <div class="item">
-          <div class="bar" style="background:${c.bar}"></div>
-          ${thumbSrc ? `<img class="thumb" src="${thumbSrc}">` : ''}
+          <div class="media">
+            ${media}
+            <span class="cat-badge" style="background:${c.bg};color:${c.fg}">${escapeHtml(i.category)}</span>
+            ${i.status === 'new' ? `<span class="ribbon">NEW</span>` : ''}
+            <button class="card-del" data-id="${i.id}" aria-label="削除">×</button>
+            ${priceTag}
+          </div>
           <div class="body">
-            <div class="top-row">
-              <div>
-                <div class="name">${escapeHtml(i.name)}</div>
-                ${i.brand ? `<div class="brand">${escapeHtml(i.brand)}</div>` : ''}
-              </div>
-              <div class="price">${i.status === 'new' ? fmtYen(i.price) : ''}</div>
-            </div>
-            <div class="meta">
-              <span class="tag" style="background:${c.bg};color:${c.fg}">${escapeHtml(i.category)}</span>
-              ${metaBits.map((m) => `<span>${escapeHtml(m)}</span>`).join('')}
-            </div>
+            <div class="name">${escapeHtml(i.name)}</div>
+            ${i.brand ? `<div class="brand">${escapeHtml(i.brand)}</div>` : ''}
+            <div class="meta-row">${metaBits.map(escapeHtml).join(' ・ ')}</div>
             ${i.notes ? `<div class="notes">${escapeHtml(i.notes)}</div>` : ''}
-            <button class="del" data-id="${i.id}">削除</button>
           </div>
         </div>
       `;
     })
     .join('');
 
-  listEl.querySelectorAll('.del').forEach((btn) => {
+  listEl.querySelectorAll('.card-del').forEach((btn) => {
     btn.addEventListener('click', async () => {
       if (!confirm('このアイテムを削除しますか?')) return;
       try {
