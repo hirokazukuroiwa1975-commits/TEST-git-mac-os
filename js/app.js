@@ -14,6 +14,9 @@
     name: document.getElementById("item-name"),
     category: document.getElementById("item-category"),
     status: document.getElementById("item-status"),
+    series: document.getElementById("item-series"),
+    volume: document.getElementById("item-volume"),
+    seriesList: document.getElementById("series-list"),
     date: document.getElementById("item-date"),
     price: document.getElementById("item-price"),
     store: document.getElementById("item-store"),
@@ -86,11 +89,49 @@
     els.cancelEditBtn.hidden = true;
   }
 
+  // Recognizes trailing volume markers like "11巻", "第11巻", "(11)", "vol.11", or a
+  // bare trailing number, and splits the rest of the name off as the series name.
+  function parseSeriesAndVolume(name) {
+    if (!name) return null;
+    const trimmed = name.trim();
+    const patterns = [
+      /^(?<series>.+?)[\s　]+第[\s　]*(?<vol>\d+)[\s　]*(?:巻|券)?[\s　]*$/,
+      /^(?<series>.+?)[\s　]*[\(（][\s　]*(?<vol>\d+)[\s　]*[\)）][\s　]*$/,
+      /^(?<series>.+?)[\s　]+vol\.?[\s　]*(?<vol>\d+)[\s　]*$/i,
+      /^(?<series>.+?)[\s　]+volume[\s　]*(?<vol>\d+)[\s　]*$/i,
+      /^(?<series>.+?)[\s　]+(?<vol>\d+)[\s　]*(?:巻|券)[\s　]*$/,
+      /^(?<series>.+?)[\s　]+(?<vol>\d+)[\s　]*$/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = trimmed.match(pattern);
+      if (match && match.groups) {
+        const series = match.groups.series.trim();
+        const vol = parseInt(match.groups.vol, 10);
+        if (series && Number.isFinite(vol)) {
+          return { series, volume: vol };
+        }
+      }
+    }
+    return null;
+  }
+
+  function suggestSeriesAndVolume() {
+    if (els.series.value.trim() || els.volume.value.trim()) return;
+    const parsed = parseSeriesAndVolume(els.name.value);
+    if (parsed) {
+      els.series.value = parsed.series;
+      els.volume.value = parsed.volume;
+    }
+  }
+
   function startEdit(item) {
     els.id.value = item.id;
     els.name.value = item.name;
     els.category.value = item.category;
     els.status.value = item.status;
+    els.series.value = item.seriesName || "";
+    els.volume.value = item.volumeNumber ?? "";
     els.date.value = item.date || "";
     els.price.value = item.price ?? "";
     els.store.value = item.store || "";
@@ -109,6 +150,12 @@
     );
   }
 
+  function getSeriesNames() {
+    return [...new Set(items.map((i) => (i.seriesName || "").trim()).filter(Boolean))].sort(
+      (a, b) => a.localeCompare(b, "ja")
+    );
+  }
+
   function refreshCategoryOptions() {
     const categories = getCategories();
 
@@ -123,6 +170,34 @@
     if (categories.includes(currentFilter)) {
       els.filterCategory.value = currentFilter;
     }
+
+    els.seriesList.innerHTML = getSeriesNames()
+      .map((s) => `<option value="${escapeHtml(s)}"></option>`)
+      .join("");
+  }
+
+  // Collapses consecutive/owned volume numbers into a compact range string,
+  // e.g. [1,2,3,5,7,8] -> "1〜3, 5, 7〜8巻".
+  function formatVolumeRange(volumeNumbers) {
+    const nums = [...new Set(volumeNumbers.filter((v) => Number.isFinite(v)))].sort((a, b) => a - b);
+    if (nums.length === 0) return "";
+
+    const ranges = [];
+    let start = nums[0];
+    let prev = nums[0];
+    for (let i = 1; i <= nums.length; i++) {
+      const cur = nums[i];
+      if (cur === prev + 1) {
+        prev = cur;
+        continue;
+      }
+      ranges.push(start === prev ? `${start}` : `${start}〜${prev}`);
+      if (cur !== undefined) {
+        start = cur;
+        prev = cur;
+      }
+    }
+    return `${ranges.join(", ")}巻`;
   }
 
   function renderStats() {
@@ -164,7 +239,7 @@
       if (categoryFilter && item.category !== categoryFilter) return false;
       if (statusFilter && item.status !== statusFilter) return false;
       if (query) {
-        const haystack = [item.name, item.notes, ...(item.tags || [])]
+        const haystack = [item.name, item.notes, item.seriesName, ...(item.tags || [])]
           .join(" ")
           .toLowerCase();
         if (!haystack.includes(query)) return false;
@@ -191,10 +266,75 @@
     return result;
   }
 
+  function renderItemCard(item) {
+    const tagsHtml = (item.tags || [])
+      .map((t) => `<span class="item-tag">#${escapeHtml(t)}</span>`)
+      .join("");
+    const metaParts = [];
+    if (item.volumeNumber !== undefined && item.volumeNumber !== null && item.volumeNumber !== "") {
+      metaParts.push(`${escapeHtml(item.volumeNumber)}巻`);
+    }
+    if (item.date) metaParts.push(`購入日: ${escapeHtml(item.date)}`);
+    if (item.price !== undefined && item.price !== null && item.price !== "") {
+      metaParts.push(`金額: ${formatYen(item.price)}`);
+    }
+    if (item.store) metaParts.push(`購入場所: ${escapeHtml(item.store)}`);
+    if (item.url) {
+      metaParts.push(`<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">参考リンク</a>`);
+    }
+
+    return `
+    <article class="item-card" data-id="${item.id}">
+      <div class="item-card-header">
+        <div>
+          <div class="item-name">${escapeHtml(item.name)}</div>
+          <div class="hint">${escapeHtml(item.category)}</div>
+        </div>
+        <span class="item-status ${item.status}">${statusLabels[item.status] || item.status}</span>
+      </div>
+      <div class="item-meta">${metaParts.join(" ・ ")}</div>
+      ${item.notes ? `<div class="item-notes">${escapeHtml(item.notes)}</div>` : ""}
+      ${tagsHtml ? `<div class="item-tags">${tagsHtml}</div>` : ""}
+      <div class="item-actions">
+        <button type="button" class="secondary edit-btn">編集</button>
+        <button type="button" class="delete-btn">削除</button>
+      </div>
+    </article>`;
+  }
+
+  function renderSeriesCard(seriesName, members) {
+    const sortedMembers = [...members].sort((a, b) => {
+      const av = Number.isFinite(a.volumeNumber) ? a.volumeNumber : Infinity;
+      const bv = Number.isFinite(b.volumeNumber) ? b.volumeNumber : Infinity;
+      if (av !== bv) return av - bv;
+      return (a.date || "").localeCompare(b.date || "");
+    });
+    const volumeRangeText = formatVolumeRange(sortedMembers.map((i) => i.volumeNumber));
+    const totalPrice = members.reduce((sum, i) => sum + (Number(i.price) || 0), 0);
+    const category = members[0].category;
+
+    return `
+    <article class="series-card" data-series="${escapeHtml(seriesName)}">
+      <div class="series-card-header">
+        <div>
+          <div class="item-name">${escapeHtml(seriesName)}</div>
+          <div class="hint">${escapeHtml(category)}</div>
+        </div>
+        <div class="series-summary">
+          <span class="item-status owned">${members.length}冊${volumeRangeText ? " ・ " + volumeRangeText : ""}</span>
+        </div>
+      </div>
+      <div class="item-meta">合計金額: ${formatYen(totalPrice)}</div>
+      <button type="button" class="toggle-series-btn">巻ごとの詳細を表示</button>
+      <div class="series-members" hidden>
+        ${sortedMembers.map((item) => renderItemCard(item)).join("")}
+      </div>
+    </article>`;
+  }
+
   function renderList() {
     const filtered = getFilteredSortedItems();
     els.emptyMessage.hidden = items.length !== 0;
-    els.itemList.hidden = filtered.length === 0 && items.length !== 0 ? false : false;
 
     if (filtered.length === 0) {
       els.itemList.innerHTML = "";
@@ -204,40 +344,21 @@
       return;
     }
 
-    els.itemList.innerHTML = filtered
+    // Group items that share a series name (2+ members) into one card;
+    // everything else renders as an individual card, in first-seen order.
+    const seenSeries = new Set();
+    const html = filtered
       .map((item) => {
-        const tagsHtml = (item.tags || [])
-          .map((t) => `<span class="item-tag">#${escapeHtml(t)}</span>`)
-          .join("");
-        const metaParts = [];
-        if (item.date) metaParts.push(`購入日: ${escapeHtml(item.date)}`);
-        if (item.price !== undefined && item.price !== null && item.price !== "") {
-          metaParts.push(`金額: ${formatYen(item.price)}`);
-        }
-        if (item.store) metaParts.push(`購入場所: ${escapeHtml(item.store)}`);
-        if (item.url) {
-          metaParts.push(`<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">参考リンク</a>`);
-        }
-
-        return `
-        <article class="item-card" data-id="${item.id}">
-          <div class="item-card-header">
-            <div>
-              <div class="item-name">${escapeHtml(item.name)}</div>
-              <div class="hint">${escapeHtml(item.category)}</div>
-            </div>
-            <span class="item-status ${item.status}">${statusLabels[item.status] || item.status}</span>
-          </div>
-          <div class="item-meta">${metaParts.join(" ・ ")}</div>
-          ${item.notes ? `<div class="item-notes">${escapeHtml(item.notes)}</div>` : ""}
-          ${tagsHtml ? `<div class="item-tags">${tagsHtml}</div>` : ""}
-          <div class="item-actions">
-            <button type="button" class="secondary edit-btn">編集</button>
-            <button type="button" class="delete-btn">削除</button>
-          </div>
-        </article>`;
+        const seriesKey = (item.seriesName || "").trim();
+        if (!seriesKey) return renderItemCard(item);
+        if (seenSeries.has(seriesKey)) return "";
+        seenSeries.add(seriesKey);
+        const members = filtered.filter((i) => (i.seriesName || "").trim() === seriesKey);
+        return members.length >= 2 ? renderSeriesCard(seriesKey, members) : renderItemCard(item);
       })
       .join("");
+
+    els.itemList.innerHTML = html;
   }
 
   function renderAll() {
@@ -258,6 +379,8 @@
       name: els.name.value.trim(),
       category: els.category.value.trim(),
       status: els.status.value,
+      seriesName: els.series.value.trim() || null,
+      volumeNumber: els.volume.value === "" ? null : Number(els.volume.value),
       date: els.date.value,
       price: els.price.value === "" ? null : Number(els.price.value),
       store: els.store.value.trim(),
@@ -292,7 +415,17 @@
     resetForm();
   });
 
+  els.name.addEventListener("blur", suggestSeriesAndVolume);
+
   els.itemList.addEventListener("click", (e) => {
+    if (e.target.classList.contains("toggle-series-btn")) {
+      const members = e.target.closest(".series-card").querySelector(".series-members");
+      const willShow = members.hidden;
+      members.hidden = !willShow;
+      e.target.textContent = willShow ? "巻ごとの詳細を隠す" : "巻ごとの詳細を表示";
+      return;
+    }
+
     const card = e.target.closest(".item-card");
     if (!card) return;
     const id = card.dataset.id;
@@ -332,7 +465,19 @@
   });
 
   els.exportCsvBtn.addEventListener("click", () => {
-    const headers = ["name", "category", "status", "date", "price", "store", "url", "tags", "notes"];
+    const headers = [
+      "name",
+      "category",
+      "seriesName",
+      "volumeNumber",
+      "status",
+      "date",
+      "price",
+      "store",
+      "url",
+      "tags",
+      "notes",
+    ];
     const rows = items.map((item) =>
       headers
         .map((h) => {
@@ -365,8 +510,32 @@
       .sort((a, b) => a.localeCompare(b, "ja"))
       .forEach((cat) => {
         md += `## ${cat}\n\n`;
+
+        const seriesGroups = {};
+        byCategory[cat].forEach((item) => {
+          const key = (item.seriesName || "").trim();
+          if (!key) return;
+          if (!seriesGroups[key]) seriesGroups[key] = [];
+          seriesGroups[key].push(item);
+        });
+        const seriesNames = Object.keys(seriesGroups).filter((key) => seriesGroups[key].length >= 2);
+        if (seriesNames.length > 0) {
+          md += `### シリーズ一覧\n\n`;
+          seriesNames.sort((a, b) => a.localeCompare(b, "ja")).forEach((name) => {
+            const members = seriesGroups[name];
+            const range = formatVolumeRange(members.map((i) => i.volumeNumber));
+            const total = members.reduce((sum, i) => sum + (Number(i.price) || 0), 0);
+            md += `- ${name}: ${range}（${members.length}冊、合計${formatYen(total)}）\n`;
+          });
+          md += `\n`;
+        }
+
         byCategory[cat].forEach((item) => {
           md += `### ${item.name}（${statusLabels[item.status] || item.status}）\n\n`;
+          if (item.seriesName) md += `- シリーズ: ${item.seriesName}\n`;
+          if (item.volumeNumber !== undefined && item.volumeNumber !== null && item.volumeNumber !== "") {
+            md += `- 巻: ${item.volumeNumber}\n`;
+          }
           if (item.date) md += `- 購入日: ${item.date}\n`;
           if (item.price !== undefined && item.price !== null && item.price !== "") {
             md += `- 購入金額: ${formatYen(item.price)}\n`;
@@ -451,7 +620,10 @@
         throw new Error(result.error || "解析に失敗しました。");
       }
 
-      if (result.itemName) els.name.value = result.itemName;
+      if (result.itemName) {
+        els.name.value = result.itemName;
+        suggestSeriesAndVolume();
+      }
       if (result.storeName) els.store.value = result.storeName;
       if (result.purchaseDate) els.date.value = result.purchaseDate;
       if (result.totalAmount !== null && result.totalAmount !== undefined) {

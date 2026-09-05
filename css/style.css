@@ -283,6 +283,57 @@ button.secondary:hover {
   background: #8f2b2b;
 }
 
+.series-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.series-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.series-summary .item-status {
+  background: var(--accent);
+}
+
+.toggle-series-btn {
+  align-self: flex-start;
+  background: var(--panel-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.8rem;
+  font-size: 0.82rem;
+}
+
+.toggle-series-btn:hover {
+  background: #ece9e2;
+}
+
+.series-members {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed var(--border);
+}
+
+.series-members .item-card {
+  background: var(--panel-bg);
+}
+
+#series-hint {
+  margin-top: -0.5rem;
+}
+
 .empty-message {
   color: var(--text-muted);
   text-align: center;

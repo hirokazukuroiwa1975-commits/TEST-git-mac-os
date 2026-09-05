@@ -70,6 +70,18 @@
       </div>
       <div class="form-row two-col">
         <div>
+          <label for="item-series">シリーズ名（漫画などをまとめて管理する場合）</label>
+          <input type="text" id="item-series" list="series-list" placeholder="例: ドラゴンボール">
+          <datalist id="series-list"></datalist>
+        </div>
+        <div>
+          <label for="item-volume">巻数</label>
+          <input type="number" id="item-volume" min="1" step="1" placeholder="例: 11">
+        </div>
+      </div>
+      <p class="hint" id="series-hint">品名から自動で候補を入力します。違う場合は自由に修正・削除してください。</p>
+      <div class="form-row two-col">
+        <div>
           <label for="item-date">購入日</label>
           <input type="date" id="item-date">
         </div>
