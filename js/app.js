@@ -54,6 +54,13 @@
   // the same list as long as both point at the same running server.
   let items = [];
 
+  // Photo lifecycle tracking for the current form session: the photo the
+  // item already had saved when editing started, and any new photos
+  // uploaded during this session (which are orphans until a save confirms
+  // one of them as the kept value).
+  let originalPhotoUrl = null;
+  let pendingPhotoUploads = [];
+
   async function loadItems() {
     try {
       const res = await fetch("/api/items");
@@ -123,6 +130,8 @@
     els.cancelEditBtn.hidden = true;
     setPhotoPreview(null);
     els.photoStatus.textContent = "";
+    originalPhotoUrl = null;
+    pendingPhotoUploads = [];
   }
 
   // Recognizes trailing volume markers like "11巻", "第11巻", "(11)", "vol.11", or a
@@ -168,6 +177,8 @@
     els.status.value = item.status;
     els.series.value = item.seriesName || "";
     els.volume.value = item.volumeNumber ?? "";
+    originalPhotoUrl = item.photoUrl || null;
+    pendingPhotoUploads = [];
     setPhotoPreview(item.photoUrl || null);
     els.date.value = item.date || "";
     els.price.value = item.price ?? "";
@@ -444,6 +455,17 @@
 
     if (!data.name || !data.category) return;
 
+    // Any photo not kept as the final value is now an orphan: the item's
+    // previously-saved photo (if replaced/removed) and any photo uploaded
+    // during this session other than the one actually kept.
+    const photosToCleanup = [];
+    if (originalPhotoUrl && originalPhotoUrl !== data.photoUrl) {
+      photosToCleanup.push(originalPhotoUrl);
+    }
+    pendingPhotoUploads.forEach((url) => {
+      if (url !== data.photoUrl) photosToCleanup.push(url);
+    });
+
     const editingId = els.id.value;
     if (editingId) {
       const idx = items.findIndex((i) => i.id === editingId);
@@ -464,10 +486,14 @@
     const ok = await saveItems();
     if (!ok) {
       alert("サーバーへの保存に失敗しました。ネットワーク接続とサーバーの起動状態を確認してください。");
+      return;
     }
+    photosToCleanup.forEach((url) => deletePhotoFile(url));
   });
 
   els.cancelEditBtn.addEventListener("click", () => {
+    // Discard any photo uploaded during this (now-abandoned) edit session.
+    pendingPhotoUploads.forEach((url) => deletePhotoFile(url));
     resetForm();
   });
 
@@ -714,6 +740,7 @@
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "アップロードに失敗しました。");
+      pendingPhotoUploads.push(result.url);
       setPhotoPreview(result.url);
       els.photoStatus.textContent = "";
     } catch (err) {
