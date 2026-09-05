@@ -52,7 +52,7 @@ app.post("/api/analyze-receipt", async (req, res) => {
 
   try {
     const response = await client.messages.parse({
-      model: "claude-opus-5",
+      model: "claude-sonnet-5",
       max_tokens: 2048,
       messages: [
         {
