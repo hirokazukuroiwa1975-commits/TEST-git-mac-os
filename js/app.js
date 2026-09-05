@@ -195,9 +195,14 @@ function renderPhotoPreview() {
   `;
   document.getElementById('removePhotoBtn').addEventListener('click', () => {
     pendingPhoto = null;
-    document.getElementById('f-photo').value = '';
+    clearPhotoInputs();
     renderPhotoPreview();
   });
+}
+
+function clearPhotoInputs() {
+  document.getElementById('f-photo-camera').value = '';
+  document.getElementById('f-photo-library').value = '';
 }
 
 function setStatus(s) {
@@ -220,7 +225,7 @@ function resetForm() {
   document.getElementById('f-price').value = '';
   document.getElementById('f-place').value = '';
   document.getElementById('f-notes').value = '';
-  document.getElementById('f-photo').value = '';
+  clearPhotoInputs();
   pendingPhoto = null;
   renderPhotoPreview();
   setStatus('existing');
@@ -272,10 +277,13 @@ function wireForm() {
   document.getElementById('cancelAdd').addEventListener('click', closePanel);
   document.getElementById('s-existing').addEventListener('click', () => setStatus('existing'));
   document.getElementById('s-new').addEventListener('click', () => setStatus('new'));
-  document.getElementById('photoPickBtn').addEventListener('click', () => {
-    document.getElementById('f-photo').click();
+  document.getElementById('photoCameraBtn').addEventListener('click', () => {
+    document.getElementById('f-photo-camera').click();
   });
-  document.getElementById('f-photo').addEventListener('change', async (e) => {
+  document.getElementById('photoLibraryBtn').addEventListener('click', () => {
+    document.getElementById('f-photo-library').click();
+  });
+  const handlePhotoChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     try {
@@ -285,7 +293,9 @@ function wireForm() {
       console.error(err);
       alert('写真の読み込みに失敗しました');
     }
-  });
+  };
+  document.getElementById('f-photo-camera').addEventListener('change', handlePhotoChange);
+  document.getElementById('f-photo-library').addEventListener('change', handlePhotoChange);
   document.getElementById('f-category').addEventListener('change', (e) => {
     document.getElementById('f-category-custom-wrap').style.display =
       e.target.value === '__custom' ? 'block' : 'none';

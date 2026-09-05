@@ -92,8 +92,12 @@
 
     <div class="photo-field">
       <label>写真(任意)</label>
-      <input type="file" id="f-photo" accept="image/*" capture="environment" style="display:none">
-      <button type="button" class="photo-input-btn" id="photoPickBtn">写真を選ぶ・撮影する</button>
+      <input type="file" id="f-photo-camera" accept="image/*" capture="environment" style="display:none">
+      <input type="file" id="f-photo-library" accept="image/*" style="display:none">
+      <div class="photo-btn-row">
+        <button type="button" class="photo-input-btn" id="photoCameraBtn">撮影する</button>
+        <button type="button" class="photo-input-btn" id="photoLibraryBtn">ライブラリから選択</button>
+      </div>
       <div id="photoPreviewArea"></div>
     </div>
 
